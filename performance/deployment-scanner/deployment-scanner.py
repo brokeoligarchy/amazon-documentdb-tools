@@ -59,6 +59,30 @@ def get_cw_metric_daily_average(appConfig, cwClient, cwMetric, cwMath, cwCluster
     return cwMetricAverage
 
 
+def get_account_name(appConfig):
+    """Get AWS account ID and alias using STS and IAM"""
+    try:
+        sts_client = boto3.client('sts', region_name=appConfig['region'])
+        response = sts_client.get_caller_identity()
+        account_id = response['Account']
+        
+        # Try to get account alias
+        try:
+            iam_client = boto3.client('iam', region_name=appConfig['region'])
+            aliases = iam_client.list_account_aliases()
+            if aliases['AccountAliases']:
+                account_alias = aliases['AccountAliases'][0]
+            else:
+                account_alias = "No-Alias"
+        except:
+            account_alias = "No-Alias"
+            
+        return account_id, account_alias
+    except Exception as e:
+        print(f"Warning: Could not get account information: {e}")
+        return "Unknown-Account", "Unknown-Alias"
+
+
 def get_docdb_instance_based_clusters(appConfig, pricingDict):
     gbBytes = 1000 * 1000 * 1000
     gibBytes = 1024 * 1024 * 1024
@@ -66,7 +90,10 @@ def get_docdb_instance_based_clusters(appConfig, pricingDict):
     client = boto3.client('docdb',region_name=appConfig['region'])
     cwClient = boto3.client('cloudwatch',region_name=appConfig['region'])
     
-    printLog("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format('cluster','io-type','version','num-instances','standard-compute','standard-io','standard-storage','standard-backup','standard-total','io-optimized-compute','io-optimized-io','io-optimized-storage','io-optimized-backup','io-optimized-total','recommendation','estimated-potential-savings'),appConfig)
+    # Get account ID and alias
+    account_id, account_alias = get_account_name(appConfig)
+    
+    printLog("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format('account-id','account-alias','cluster','io-type','version','num-instances','standard-compute','standard-io','standard-storage','standard-backup','standard-total','io-optimized-compute','io-optimized-io','io-optimized-storage','io-optimized-backup','io-optimized-total','recommendation','estimated-potential-savings'),appConfig)
     
     #response = client.describe_db_clusters()
     response = client.describe_db_clusters(Filters=[{'Name': 'engine','Values': ['docdb']}])
@@ -169,7 +196,7 @@ def get_docdb_instance_based_clusters(appConfig, pricingDict):
             print("")
             print(recommendationString)
 
-        printLog("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format(thisCluster['DBClusterIdentifier'],ioType,engineVersionFull,numInstances,
+        printLog("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format(account_id,account_alias,thisCluster['DBClusterIdentifier'],ioType,engineVersionFull,numInstances,
           thisMonthlyStandardIoCompute,thisStandardIopsCost,thisStandardStorageCost,thisBackupCost,monthlyStandard,
           thisMonthlyOptimizedIoCompute,thisOptimizedIopsCost,thisOptimizedStorageCost,thisBackupCost,monthlyIoOptimized,
           recommendationString,estimatedMonthlySavings),appConfig)
