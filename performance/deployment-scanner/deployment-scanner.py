@@ -177,7 +177,7 @@ def get_docdb_instance_based_clusters(appConfig, pricingDict):
     client.close()
     cwClient.close()
     
-    
+   #
 def get_pricing(appConfig):
     pd = {}
 
